@@ -25,6 +25,7 @@ type Dependencies struct {
 	Keys        []string
 	DepList     []*Dep
 	ImportGraph *Graph
+	InstallHash map[string]bool
 }
 
 type Dep struct {
@@ -35,9 +36,19 @@ type Dep struct {
 	CheckoutSpec string
 }
 
-func LoadDependencyModel(dir string, importGraph *Graph) *Dependencies {
+func NewDependencies(importGraph *Graph, depsTree *toml.TomlTree) *Dependencies {
 	deps := new(Dependencies)
 
+	deps.Imports = make([]string, len(depsTree.Keys()))
+	deps.Keys = make([]string, len(depsTree.Keys()))
+	deps.DepList = make([]*Dep, len(depsTree.Keys()))
+	deps.ImportGraph = importGraph
+	deps.InstallHash = make(map[string]bool)
+
+	return deps
+}
+
+func LoadDependencyModel(dir string, importGraph *Graph) *Dependencies {
 	path := fmt.Sprintf("%s/gopack.config", dir)
 	t, err := toml.LoadFile(path)
 	if err != nil {
@@ -45,10 +56,7 @@ func LoadDependencyModel(dir string, importGraph *Graph) *Dependencies {
 	}
 
 	depsTree := t.Get("deps").(*toml.TomlTree)
-	deps.Imports = make([]string, len(depsTree.Keys()))
-	deps.Keys = make([]string, len(depsTree.Keys()))
-	deps.DepList = make([]*Dep, len(depsTree.Keys()))
-	deps.ImportGraph = importGraph
+	deps := NewDependencies(importGraph, depsTree)
 
 	for i, k := range depsTree.Keys() {
 		depTree := depsTree.Get(k).(*toml.TomlTree)
@@ -62,6 +70,7 @@ func LoadDependencyModel(dir string, importGraph *Graph) *Dependencies {
 		deps.Imports[i] = d.Import
 		deps.DepList[i] = d
 		deps.ImportGraph.Insert(d)
+		deps.InstallHash[d.Import] = false
 	}
 	return deps
 }
@@ -88,7 +97,7 @@ func (d *Dep) CheckValidity() {
 
 func (d *Dependencies) VisitDeps(fn func(dep *Dep)) {
 	for _, dep := range d.DepList {
-		fn(dep)
+		go fn(dep)
 	}
 }
 

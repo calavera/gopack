@@ -1,11 +1,14 @@
 package main
 
 import (
+	"runtime"
 	"strings"
+	"sync"
 )
 
 type Graph struct {
 	Nodes map[string]*Node
+	Mutex *sync.Mutex
 }
 
 type Node struct {
@@ -16,14 +19,15 @@ type Node struct {
 }
 
 func NewGraph() *Graph {
-	graph := &Graph{Nodes: make(map[string]*Node)}
-	return graph
+	return &Graph{Nodes: make(map[string]*Node), Mutex: &sync.Mutex{}}
 }
 
 func (graph *Graph) Insert(dependency *Dep) {
+	graph.Mutex.Lock()
 	keys := strings.Split(dependency.Import, "/")
-
 	graph.Nodes[keys[0]] = deepInsert(graph.Nodes, keys, dependency)
+	graph.Mutex.Unlock()
+	runtime.Gosched()
 }
 
 func (graph *Graph) Search(importPath string) *Node {

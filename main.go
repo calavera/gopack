@@ -62,6 +62,7 @@ func runCommand() {
 }
 
 func loadTransitiveDependencies(dependencies *Dependencies) {
+	done := make(chan string)
 	dependencies.VisitDeps(
 		func(dep *Dep) {
 			fmtcolor(Gray, "updating %s\n", dep.Import)
@@ -74,7 +75,12 @@ func loadTransitiveDependencies(dependencies *Dependencies) {
 			if transitive != nil {
 				loadTransitiveDependencies(transitive)
 			}
+			delete(dependencies.InstallHash, dep.Import)
+			if len(dependencies.InstallHash) == 0 {
+				done <- "done"
+			}
 		})
+	<-done
 }
 
 // Set the working directory.
