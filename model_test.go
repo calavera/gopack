@@ -105,3 +105,25 @@ func TestTransitiveDependencies(t *testing.T) {
 		t.Errorf("Expected dependency github.com/d2fn/gopack to be in vendor %s\n", pwd)
 	}
 }
+
+func TestCheckValidity(t *testing.T) {
+	d := NewDependency("github.com/calavera/testGoPack")
+	if d.valid() {
+		t.Errorf("Expected checkout flag to not be valid")
+	}
+
+	d.CheckoutFlag = BranchFlag
+	if !d.valid() {
+		t.Errorf("Expected checkout flag to be valid with branch flag")
+	}
+
+	d.CheckoutFlag = CommitFlag
+	if !d.valid() {
+		t.Errorf("Expected checkout flag to be valid with commit flag")
+	}
+
+	d.CheckoutFlag = TagFlag
+	if !d.valid() {
+		t.Errorf("Expected checkout flag to be valid with tag flag")
+	}
+}

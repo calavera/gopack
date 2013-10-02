@@ -79,13 +79,16 @@ func (d *Dep) setCheckout(t *toml.TomlTree, key string, flag uint8) {
 	s := t.Get(key)
 	if s != nil {
 		d.CheckoutSpec = s.(string)
-		d.CheckoutFlag |= flag
+		d.CheckoutFlag = flag
 	}
 }
 
+func (d *Dep) valid() bool {
+	return d.CheckoutFlag != 0
+}
+
 func (d *Dep) CheckValidity() {
-	f := d.CheckoutFlag
-	if f&(f-1) != 0 {
+	if !d.valid() {
 		failf("%s - only one of branch/commit/tag may be specified\n", d.Import)
 	}
 }
