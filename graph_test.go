@@ -5,44 +5,6 @@ import (
 	"testing"
 )
 
-func TestSingleNode(t *testing.T) {
-	graph := NewGraph()
-	dep := &Dep{Import: "github.com"}
-
-	graph.Insert(dep)
-	root := graph.Nodes["github.com"]
-	if root == nil {
-		t.Error("Expected root not to be nil")
-	}
-
-	if root.Dependency != dep {
-		t.Errorf("Expected Node.Dependency to be %v", dep)
-	}
-
-	if root.Leaf == false {
-		t.Errorf("Expected root to be also a leaf")
-	}
-}
-
-func TestGraphWithSeveralRoots(t *testing.T) {
-	graph := NewGraph()
-	dep1 := &Dep{Import: "github.com"}
-	dep2 := &Dep{Import: "code.google.com"}
-
-	graph.Insert(dep1)
-	graph.Insert(dep2)
-
-	root := graph.Nodes["github.com"]
-	if root == nil {
-		t.Error("Expected root not to be nil")
-	}
-
-	root = graph.Nodes["code.google.com"]
-	if root == nil {
-		t.Error("Expected root not to be nil")
-	}
-}
-
 func TestDeepGraph(t *testing.T) {
 	graph := NewGraph()
 	dep1 := &Dep{Import: "github.com/d2fn/gopack"}
@@ -126,5 +88,106 @@ func TestSearchWorksWithExtendedNames(t *testing.T) {
 	node := graph.Search("github.com/d2fn/gopack/graph")
 	if node.Dependency != dep {
 		t.Error("Expected search to succeed importing extended repos")
+	}
+}
+
+func TestValidDepWhenDoesntExist(t *testing.T) {
+	graph := NewGraph()
+	dep := &Dep{Import: "github.com/d2fn/gopack"}
+
+	if _, ok := graph.Valid(dep); !ok {
+		t.Error("Expected dependency to be valid when the graph doesn't include it")
+	}
+}
+
+func TestInvalidWithDifferentFlags(t *testing.T) {
+	graph := NewGraph()
+	dep := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag}
+	graph.Insert(dep)
+
+	dep2 := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: BranchFlag}
+	if _, ok := graph.Valid(dep2); ok {
+		t.Error("Expected dependency to be invalid when the checkout flag is different")
+	}
+
+	dep3 := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: CommitFlag}
+	if _, ok := graph.Valid(dep3); ok {
+		t.Error("Expected dependency to be invalid when the checkout flag is different")
+	}
+}
+
+func TestInvalidWithDifferentSpecs(t *testing.T) {
+	graph := NewGraph()
+	dep := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: CommitFlag, CheckoutSpec: "asdf"}
+	graph.Insert(dep)
+
+	dep2 := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: CommitFlag, CheckoutSpec: "qwert"}
+	if _, ok := graph.Valid(dep2); ok {
+		t.Error("Expected dependency to be invalid when the checkout spec is different")
+	}
+}
+
+func TestValidWithSameRoot(t *testing.T) {
+	graph := NewGraph()
+	dep := &Dep{Import: "github.com/d2fn/gopack/foo", CheckoutFlag: CommitFlag, CheckoutSpec: "asdf"}
+	graph.Insert(dep)
+
+	dep2 := &Dep{Import: "github.com/d2fn/gopack/bar", CheckoutFlag: CommitFlag, CheckoutSpec: "asdf"}
+	if _, ok := graph.Valid(dep2); !ok {
+		t.Error("Expected dependency to be valid when the dependencies have the same root")
+	}
+}
+
+func TestInvalidWithDifferentRoot(t *testing.T) {
+	graph := NewGraph()
+	dep := &Dep{Import: "github.com/d2fn/gopack/foo", CheckoutFlag: CommitFlag, CheckoutSpec: "asdf"}
+	graph.Insert(dep)
+
+	dep2 := &Dep{Import: "github.com/d2fn/gopack/bar", CheckoutFlag: CommitFlag, CheckoutSpec: "qwert"}
+	if _, ok := graph.Valid(dep2); ok {
+		t.Error("Expected dependency to be valid when the dependencies have the same root")
+	}
+}
+
+func TestValidWithSameTagVersioning(t *testing.T) {
+	graph := NewGraph()
+	dep := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag, CheckoutSpec: "v1.2.0"}
+	graph.Insert(dep)
+
+	dep2 := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag, CheckoutSpec: "v1.2.0"}
+	if _, ok := graph.Valid(dep2); !ok {
+		t.Error("Expected dependency to be valid when the dependency tag spec is the same")
+	}
+}
+
+func TestValidWithPesimisticTagVersioning(t *testing.T) {
+	graph := NewGraph()
+	dep := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag, CheckoutSpec: "v1.2.8"}
+	graph.Insert(dep)
+
+	dep2 := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag, CheckoutSpec: "v1.2.0"}
+	if _, ok := graph.Valid(dep2); !ok {
+		t.Error("Expected dependency to be valid when the dependency tag spec is pesimitically greater")
+	}
+}
+
+func TestInvalidWithInvalidPesimisticTagVersioning(t *testing.T) {
+	graph := NewGraph()
+	dep := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag, CheckoutSpec: "v1.2.0"}
+	graph.Insert(dep)
+
+	dep2 := &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag, CheckoutSpec: "v1.2.8"}
+	if _, ok := graph.Valid(dep2); ok {
+		t.Error("Expected dependency to be invalid when the dependency tag spec is pesimitically lower")
+	}
+
+	dep2 = &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag, CheckoutSpec: "v1.1.8"}
+	if _, ok := graph.Valid(dep2); ok {
+		t.Error("Expected dependency to be invalid when the dependency tag spec is pesimitically lower")
+	}
+
+	dep2 = &Dep{Import: "github.com/d2fn/gopack", CheckoutFlag: TagFlag, CheckoutSpec: "v1.3.8"}
+	if _, ok := graph.Valid(dep2); ok {
+		t.Error("Expected dependency to be invalid when the dependency tag spec is pesimitically lower")
 	}
 }

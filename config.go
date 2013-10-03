@@ -125,7 +125,12 @@ func (c *Config) LoadDependencyModel(importGraph *Graph) (deps *Dependencies) {
 		deps.Imports[i] = d.Import
 		deps.DepList[i] = d
 
-		deps.ImportGraph.Insert(d)
+		if node, ok := deps.ImportGraph.Valid(d); ok {
+			deps.ImportGraph.Insert(d)
+		} else {
+			failf("Dependency mismatch:\n\t*Trying to install: %s\n\t*Present dependency: %s",
+				d.String(), node.Dependency.String())
+		}
 	}
 
 	if fetchDeps == false {
