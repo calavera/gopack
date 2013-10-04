@@ -5,6 +5,7 @@ go:
 
 install:
   - go get github.com/pelletier/go-toml
+  - go get github.com/jm/go-semver
   - go build
   - mv gopack gp
 script: ./gp test

@@ -26,6 +26,7 @@ for PLATFORM in $PLATFORMS; do
 
   echo "Building gopack for $GOOS $GOARCH"
   go-$GOOS-$GOARCH get -u github.com/pelletier/go-toml
+  go-$GOOS-$GOARCH get -u github.com/jm/go-semver
   go-$GOOS-$GOARCH build -o $PKG/gp-$GOOS-$GOARCH ..
 done
 
