@@ -43,9 +43,9 @@ func main() {
 
 	deps := loadDependencies(".", p)
 
-  if deps == nil {
-    fail("Error loading dependency info")
-  }
+	if deps == nil {
+		fail("Error loading dependency info")
+	}
 
 	first := os.Args[1]
 	if first == "dependencytree" {

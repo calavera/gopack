@@ -82,19 +82,10 @@ func TestSubPackages(t *testing.T) {
 }
 
 func TestTransitiveDependencies(t *testing.T) {
-	setupTestPwd()
-	setupEnv()
-
-	fixture := `
-[deps.testgopack]
+	setupDependencies(`[deps.testgopack]
   import = "github.com/calavera/testGoPack"
   branch = "master"
-`
-	createFixtureConfig(pwd, fixture)
-
-	config := NewConfig(pwd)
-	dependencies := config.LoadDependencyModel(NewGraph())
-	loadTransitiveDependencies(dependencies)
+`)
 
 	dep := path.Join(pwd, VendorDir, "src", "github.com", "calavera", "testGoPack")
 	if _, err := os.Stat(dep); os.IsNotExist(err) {
@@ -105,4 +96,28 @@ func TestTransitiveDependencies(t *testing.T) {
 	if _, err := os.Stat(dep); os.IsNotExist(err) {
 		t.Errorf("Expected dependency github.com/d2fn/gopack to be in vendor %s\n", pwd)
 	}
+}
+
+func TestDepAlias(t *testing.T) {
+	setupDependencies(`[deps.testgopack]
+  import = "github.com/calavera/testGoPack"
+  alias  = "github.com/d2fn/testGoPack"
+  branch = "master"
+`)
+
+	dep := path.Join(pwd, VendorDir, "src", "github.com", "d2fn", "testGoPack")
+	if _, err := os.Stat(dep); os.IsNotExist(err) {
+		t.Errorf("Expected dependency github.com/d2fn/testGoPack to be in vendor %s\n", pwd)
+	}
+}
+
+func setupDependencies(fixture string) {
+	setupTestPwd()
+	setupEnv()
+
+	createFixtureConfig(pwd, fixture)
+
+	config := NewConfig(pwd)
+	dependencies := config.LoadDependencyModel(NewGraph())
+	loadTransitiveDependencies(dependencies)
 }

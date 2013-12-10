@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -35,6 +36,8 @@ type Dep struct {
 	CheckoutSpec string
 
 	fetch bool
+
+	Alias string
 }
 
 func NewDependency(repo string) *Dep {
@@ -73,12 +76,12 @@ func (d *Dependencies) VisitDeps(fn func(dep *Dep)) {
 }
 
 func (d *Dependencies) AnyDepsNeedFetching() bool {
-  for _, dep := range d.DepList {
-    if dep.fetch {
-      return true
-    }
-  }
-  return false
+	for _, dep := range d.DepList {
+		if dep.fetch {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Dependencies) AllDepsNeedFetching() bool {
@@ -208,8 +211,34 @@ func (d *Dep) goGetUpdate() (err error) {
 	if d.fetch {
 		cmd := exec.Command("go", "get", "-d", "-u", d.Import)
 		err = cmd.Run()
+
+		if d.Alias != "" {
+			d.createAlias()
+		}
 	}
 	return
+}
+
+func (d *Dep) createAlias() {
+	src := fmt.Sprintf("%s/%s/src", pwd, VendorDir)
+	importPath := fmt.Sprintf("%s/%s", src, d.Import)
+	aliasPath := fmt.Sprintf("%s/%s", src, d.Alias)
+	aliasParentPath := filepath.Dir(aliasPath)
+
+	err := os.MkdirAll(aliasParentPath, 0755)
+	if err != nil {
+		fail(err)
+	}
+
+	err = os.RemoveAll(aliasPath)
+	if err != nil {
+		fail(err)
+	}
+
+	err = os.Symlink(importPath, aliasPath)
+	if err != nil && !os.IsExist(err) {
+		fail(err)
+	}
 }
 
 func (d *Dep) LoadTransitiveDeps(importGraph *Graph) *Dependencies {

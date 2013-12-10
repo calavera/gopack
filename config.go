@@ -115,6 +115,10 @@ func (c *Config) LoadDependencyModel(importGraph *Graph) (deps *Dependencies) {
 		d.setCheckout(depTree, "commit", CommitFlag)
 		d.setCheckout(depTree, "tag", TagFlag)
 
+		if depTree.Get("alias") != nil {
+			d.Alias = depTree.Get("alias").(string)
+		}
+
 		d.CheckValidity()
 		d.fetch = modifiedChecksum || d.CheckoutFlag == BranchFlag
 

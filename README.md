@@ -61,6 +61,22 @@ cd ~/projects/myproject
 gp run *.go
 ```
 
+# Importing forks
+
+Forks are really useful to keep dependency modifications until they are pulled into their master repos. But nobody wants to modify every import in their projects to use a forked library.
+Gopack includes the `alias` directive to allow you import a lirabry with another name.
+
+Given the fowolling gopack.config:
+
+```toml
+[deps.mux]
+import = "github.com/calavera/mux"
+alias  = "github.com/gorilla/mux"
+branch = "1.0rc2"
+```
+
+Gopack will download the library from `github.com/calavera/mux`, but it will leave it under `github.com/gorilla/mux` for you to import it in your code.
+
 # Gopack commands
 
 Gopack includes a few tools to help you track your project dependencies.
