@@ -54,3 +54,26 @@ func TestCleanScmFiles(t *testing.T) {
 		t.Errorf("Expected %s to not exist: %v", underscoreFile, err)
 	}
 }
+
+func TestCleanScmBinaryFiles(t *testing.T) {
+	setupTestPwd()
+
+	dep := createScmDep(HiddenGit, "github.com/d2fn/gopack", "bin")
+
+	binDir := path.Join(dep.Src(), "bin")
+	binFile := path.Join(binDir, "foo")
+
+	ioutil.WriteFile(binFile, []byte("foo\nbar"), 0755)
+
+	cleanScms()
+
+	_, err := os.Stat(binDir)
+	if err == nil || !os.IsNotExist(err) {
+		t.Errorf("Expected %s to not exist: %v", binDir, err)
+	}
+
+	_, err = os.Stat(binFile)
+	if err == nil || !os.IsNotExist(err) {
+		t.Errorf("Expected %s to not exist: %v", binFile, err)
+	}
+}

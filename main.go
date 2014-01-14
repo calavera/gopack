@@ -205,7 +205,7 @@ func cleanScms() error {
 	return filepath.Walk(srcDir, func(path string, fi os.FileInfo, err error) error {
 		name := fi.Name()
 
-		if name[0] == '.' || name[0] == '_' {
+		if name == "bin" || name[0] == '.' || name[0] == '_' {
 			if rErr := os.RemoveAll(path); rErr != nil {
 				log.Printf("Unable to clean dependency path: %s\n", path)
 				return rErr
