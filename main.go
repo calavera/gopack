@@ -60,7 +60,7 @@ func main() {
 		if !config.Vendor {
 			vendorDependencies(config, deps)
 		}
-		fmtcolor(Gray, "Vendor dependencies ready")
+		fmtcolor(Gray, "Vendor dependencies ready\n")
 	default:
 		runCommand()
 	}
