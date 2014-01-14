@@ -4,9 +4,11 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -26,7 +28,22 @@ type Scm interface {
 	Checkout(d *Dep) error
 	Fetch(path string) error
 	DownloadCommand(source, path string) *exec.Cmd
+	WriteVendorIgnores() error
 }
+
+var (
+	Scms = map[string]Scm{
+		GitTag: Git{},
+		HgTag:  Hg{},
+		SvnTag: Svn{},
+		BzrTag: Bzr{}}
+
+	HiddenDirs = map[string]string{
+		GitTag: HiddenGit,
+		HgTag:  HiddenHg,
+		SvnTag: HiddenSvn,
+		BzrTag: HiddenBzr}
+)
 
 func dependencyPath(importPath string) string {
 	return path.Join(pwd, VendorDir, "src", importPath)
@@ -97,6 +114,13 @@ func (g Git) Fetch(path string) error {
 	})
 }
 
+func (g Git) WriteVendorIgnores() error {
+	gitignore := path.Join(pwd, VendorDir, ".gitignore")
+	os.MkdirAll(filepath.Dir(gitignore), 0755)
+
+	return ioutil.WriteFile(gitignore, []byte("-/bin\n-/pkg\n"), 0755)
+}
+
 type Hg struct{}
 
 func (h Hg) Init(d *Dep) error {
@@ -125,8 +149,19 @@ func (h Hg) Fetch(path string) error {
 	})
 }
 
-type Svn struct {
+func (h Hg) WriteVendorIgnores() (err error) {
+	file, err := os.OpenFile(path.Join(pwd, ".hgignore"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0755)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(fmt.Sprintf("\nsyntax: glob\n%s\n%s\n",
+		path.Join(VendorDir, "bin"), path.Join(VendorDir, "pkg")))
+	return
 }
+
+type Svn struct{}
 
 func (s Svn) Init(d *Dep) error {
 	return initScm(d, HiddenSvn, s)
@@ -157,8 +192,16 @@ func (s Svn) Fetch(path string) error {
 	})
 }
 
-type Bzr struct {
+func (s Svn) WriteVendorIgnores() (err error) {
+	err = exec.Command("svn", "propset", "svn:ignore", path.Join(VendorDir, "bin"), ".").Run()
+	if err != nil {
+		return
+	}
+	err = exec.Command("svn", "propset", "svn:ignore", path.Join(VendorDir, "pkg"), ".").Run()
+	return
 }
+
+type Bzr struct{}
 
 func (b Bzr) Init(d *Dep) error {
 	return initScm(d, HiddenBzr, b)
@@ -187,6 +230,15 @@ func (b Bzr) Fetch(path string) error {
 	return runInPath(path, func() error {
 		return exec.Command("bzr", "pull").Run()
 	})
+}
+
+func (b Bzr) WriteVendorIgnores() (err error) {
+	err = exec.Command("bzr", "ignore", path.Join(VendorDir, "bin")).Run()
+	if err != nil {
+		return
+	}
+	err = exec.Command("bzr", "ignore", path.Join(VendorDir, "pkg")).Run()
+	return
 }
 
 // The Go scm embeds another scm and only implements Init so that
@@ -232,13 +284,25 @@ func scmInSource(d *Dep) Scm {
 	initPath := d.Src()
 
 	for _, _ = range parts {
-		for key, scm := range Scms {
-			if d.scmPath(path.Join(initPath, HiddenDirs[key])) {
-				return scm
-			}
+		if scm := scmInPath(initPath); scm != nil {
+			return scm
 		}
 		initPath = path.Join(initPath, "..")
 	}
 
 	return nil
+}
+
+func scmInPath(initPath string) Scm {
+	for key, scm := range Scms {
+		if isDir(path.Join(initPath, HiddenDirs[key])) {
+			return scm
+		}
+	}
+	return nil
+}
+
+func isDir(path string) bool {
+	stat, err := os.Stat(path)
+	return err == nil && stat.IsDir()
 }

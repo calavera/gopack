@@ -19,6 +19,8 @@ type Config struct {
 	Repository string
 	// Dependencies tree
 	DepsTree *toml.TomlTree
+	// Whether the dependencies are vendorized or not
+	Vendor bool
 }
 
 func NewConfig(dir string) *Config {
@@ -35,6 +37,10 @@ func NewConfig(dir string) *Config {
 
 	if repo := t.Get("repo"); repo != nil {
 		config.Repository = repo.(string)
+	}
+
+	if vendor := t.Get("vendor"); vendor != nil {
+		config.Vendor = vendor.(bool)
 	}
 
 	return config
@@ -133,4 +139,14 @@ func (c *Config) LoadDependencyModel(importGraph *Graph) (deps *Dependencies, er
 	}
 
 	return deps, nil
+}
+
+func (c *Config) WriteVendor() error {
+	content, err := ioutil.ReadFile(c.Path)
+	if err != nil {
+		return err
+	}
+
+	newContent := fmt.Sprintf("# Dependencies vendored.\n# Do not remove this option.\nvendor = true\n%s", string(content))
+	return ioutil.WriteFile(c.Path, []byte(newContent), 0755)
 }

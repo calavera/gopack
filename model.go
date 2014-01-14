@@ -19,20 +19,6 @@ const (
 	TagFlag    = 1 << 2
 )
 
-var (
-	Scms = map[string]Scm{
-		GitTag: Git{},
-		HgTag:  Hg{},
-		SvnTag: Svn{},
-		BzrTag: Bzr{}}
-
-	HiddenDirs = map[string]string{
-		GitTag: HiddenGit,
-		HgTag:  HiddenHg,
-		SvnTag: HiddenSvn,
-		BzrTag: HiddenBzr}
-)
-
 type Dependencies struct {
 	Imports     []string
 	Keys        []string
@@ -204,7 +190,7 @@ func (d *Dep) CheckoutType() string {
 }
 
 func (d *Dep) Src() string {
-	return fmt.Sprintf("%s/%s/src/%s", pwd, VendorDir, d.Import)
+	return fmt.Sprintf("%s/%s/%s", pwd, VendorSrcDir, d.Import)
 }
 
 // switch the dep to the appropriate branch or tag
@@ -227,16 +213,6 @@ func (d *Dep) switchToBranchOrTag() error {
 	}
 
 	return cdHome()
-}
-
-// Tell the scm where the dependency is hosted.
-func (d *Dep) scmPath(scmPath string) bool {
-	stat, err := os.Stat(scmPath)
-	if err != nil {
-		return false
-	}
-
-	return stat.IsDir()
 }
 
 func (d *Dep) cdSrc() error {

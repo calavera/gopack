@@ -215,3 +215,41 @@ func TestFetchWithMixedSpecsIgnoringOrder(t *testing.T) {
 		t.Errorf("Expected to fetch the branch dependencies")
 	}
 }
+
+func TestWriteVendor(t *testing.T) {
+	config := setupTestConfig(`
+[deps.foo]
+  import = "github.com/calavera/foo"
+  branch = "master"
+[deps.testgopack]
+  import = "github.com/calavera/testGoPack"
+  commit = "182cae2ee3926a960223d8db4998aa9d57c89788"
+`)
+
+	err := config.WriteVendor()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := `# Dependencies vendored.
+# Do not remove this option.
+vendor = true
+
+[deps.foo]
+  import = "github.com/calavera/foo"
+  branch = "master"
+[deps.testgopack]
+  import = "github.com/calavera/testGoPack"
+  commit = "182cae2ee3926a960223d8db4998aa9d57c89788"
+`
+
+	bytes, err := ioutil.ReadFile(config.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(bytes)
+
+	if content != expected {
+		t.Fatalf("Expected config:\n%s\n\nbut it was:\n%s", expected, content)
+	}
+}

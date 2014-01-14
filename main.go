@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 	GopackChecksum     = ".gopack/checksum"
 	GopackTestProjects = ".gopack/test-projects"
 	VendorDir          = ".gopack/vendor"
+	VendorSrcDir       = ".gopack/vendor/src"
 )
 
 const (
@@ -54,6 +56,11 @@ func main() {
 		p.PrintSummary()
 	case "installdeps":
 		deps.Install(config.Repository)
+	case "vendor":
+		if !config.Vendor {
+			vendorDependencies(config, deps)
+		}
+		fmtcolor(Gray, "Vendor dependencies ready")
 	default:
 		runCommand()
 	}
@@ -61,7 +68,7 @@ func main() {
 
 func loadDependencies(root string, p *ProjectStats) (*Config, *Dependencies) {
 	config, dependencies := loadConfiguration(root)
-	if dependencies != nil {
+	if dependencies != nil && !config.Vendor {
 		announceGopack()
 		failWith(dependencies.Validate(p))
 		// prepare dependencies
@@ -168,6 +175,44 @@ func fmtcolor(c uint8, s string, args ...interface{}) {
 	if showColors {
 		fmt.Printf(EndColor)
 	}
+}
+
+func vendorDependencies(config *Config, deps *Dependencies) {
+	mainScm := scmInPath(pwd)
+	if mainScm == nil {
+		failf(fmt.Sprintf("Unknown scm at %s\n", pwd))
+	}
+
+	err := cleanScms()
+	if err != nil {
+		failf(err.Error())
+	}
+
+	err = mainScm.WriteVendorIgnores()
+	if err != nil {
+		failf(err.Error())
+	}
+
+	err = config.WriteVendor()
+	if err != nil {
+		failf(err.Error())
+	}
+}
+
+func cleanScms() error {
+	srcDir := filepath.Join(pwd, VendorSrcDir)
+
+	return filepath.Walk(srcDir, func(path string, fi os.FileInfo, err error) error {
+		name := fi.Name()
+
+		if name[0] == '.' || name[0] == '_' {
+			if rErr := os.RemoveAll(path); rErr != nil {
+				log.Printf("Unable to clean dependency path: %s\n", path)
+				return rErr
+			}
+		}
+		return nil
+	})
 }
 
 func logcolor(c uint8, s string, args ...interface{}) {

@@ -83,6 +83,17 @@ Gopack includes a few tools to help you track your project dependencies.
 1. `./gp dependencytree` shows the complete list of external dependencies in your project.
 2. `./gp stats` shows statistics about dependency imports.
 3. `./gp installdeps` installs the project dependencies using `go install ...`.
+4. `./gp vendor` vendors the project dependencies under `.gopack/vendor`. See [Vendoring](#Vendoring)
+
+## Vendoring
+
+Gopack allows you to keep your dependencies vendored inside your project.
+
+When you run `./gp vendor`, gopack will download all the dependencies for your project, if missing, it will clean up their respective scm directories and will generate a few ignoring rules for your project's scm.
+
+When this process completes, you'll see that the option `vendor = true` is added to your `gopack.config`. This will tell gopack to use the vendored dependencies the next time it runs rather than trying to fetch them again.
+
+After that, you only need to commit your `.gopack` directory within your project to keep your vendored dependencies for future usage.
 
 ## License
 
