@@ -21,6 +21,7 @@ type ImportStats struct {
 	Path               string
 	Remote             bool
 	ReferencePositions []token.Position
+	Test               bool
 }
 
 type SummaryItem struct {
@@ -102,7 +103,7 @@ func (ps *ProjectStats) analyzeSourceFile(path string) error {
 		return err
 	}
 	for _, i := range f.Imports {
-		err = ps.foundImport(fs, i, path)
+		err = ps.foundImport(fs, i, strings.HasSuffix(path, "_test.go"))
 		if err != nil {
 			return err
 		}
@@ -110,7 +111,7 @@ func (ps *ProjectStats) analyzeSourceFile(path string) error {
 	return nil
 }
 
-func (ps *ProjectStats) foundImport(fs *token.FileSet, i *ast.ImportSpec, path string) error {
+func (ps *ProjectStats) foundImport(fs *token.FileSet, i *ast.ImportSpec, isTest bool) error {
 	importPath, err := strconv.Unquote(i.Path.Value)
 	if err != nil {
 		return err
@@ -120,7 +121,7 @@ func (ps *ProjectStats) foundImport(fs *token.FileSet, i *ast.ImportSpec, path s
 	if found {
 		ps.ImportStatsByPath[importPath].ReferencePositions = append(ps.ImportStatsByPath[importPath].ReferencePositions, ref)
 	} else {
-		ps.ImportStatsByPath[importPath] = NewImportStats(importPath, ref)
+		ps.ImportStatsByPath[importPath] = NewImportStats(importPath, ref, isTest)
 	}
 	return nil
 }
@@ -161,15 +162,13 @@ func (ps *ProjectStats) GetSummary() *Summary {
 	return summary
 }
 
-func NewImportStats(importPath string, pos token.Position) *ImportStats {
+func NewImportStats(importPath string, pos token.Position, isTest bool) *ImportStats {
 	parts := strings.Split(importPath, "/")
 	remote := false
 	if len(parts) > 0 && strings.Contains(parts[0], ".") && strings.Index(parts[0], ".") > 0 {
 		remote = true
 	}
-	return &ImportStats{
-		importPath, remote, []token.Position{pos},
-	}
+	return &ImportStats{importPath, remote, []token.Position{pos}, isTest}
 }
 
 func (i *ImportStats) ReferenceList() string {

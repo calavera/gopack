@@ -248,7 +248,10 @@ type Go struct {
 }
 
 func (g Go) Init(d *Dep) error {
-	return g.DownloadCommand(d.Import, "").Run()
+	cmd := g.DownloadCommand(d.Import, "")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func (g Go) DownloadCommand(source, path string) *exec.Cmd {

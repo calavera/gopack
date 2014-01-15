@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -15,6 +16,7 @@ const (
 	GopackTestProjects = ".gopack/test-projects"
 	VendorDir          = ".gopack/vendor"
 	VendorSrcDir       = ".gopack/vendor/src"
+	GopackLock         = "gopack.lock"
 )
 
 const (
@@ -57,9 +59,7 @@ func main() {
 	case "installdeps":
 		deps.Install(config.Repository)
 	case "vendor":
-		if !config.Vendor {
-			vendorDependencies(config, deps)
-		}
+		vendorDependencies(config, deps)
 		fmtcolor(Gray, "Vendor dependencies ready\n")
 	default:
 		runCommand()
@@ -111,9 +111,28 @@ func run(args ...string) {
 }
 
 func loadTransitiveDependencies(dependencies *Dependencies) {
+	fetchTransitiveDependencies(dependencies, false)
+}
+
+func fetchTransitiveDependencies(dependencies *Dependencies, clean bool) {
 	dependencies.VisitDeps(
 		func(dep *Dep) {
 			fmtcolor(Gray, "updating %s\n", dep.Import)
+			if clean {
+				depStats, err := AnalyzeSourceTree(dep.Src())
+				if err != nil {
+					fail(err)
+				}
+				dep.CleanSrc()
+
+				for path, s := range depStats.ImportStatsByPath {
+					if s.Remote && !s.Test && !strings.HasPrefix(path, dep.Import) {
+						//FIXME: This is a really naive implementation
+						srcDir := filepath.Join(pwd, VendorSrcDir, path)
+						os.RemoveAll(srcDir)
+					}
+				}
+			}
 			dep.Get()
 
 			if dep.CheckoutType() != "" {
@@ -127,7 +146,7 @@ func loadTransitiveDependencies(dependencies *Dependencies) {
 					failf(err.Error())
 				}
 				if transitive != nil {
-					loadTransitiveDependencies(transitive)
+					fetchTransitiveDependencies(transitive, clean)
 				}
 			}
 		})
@@ -178,25 +197,74 @@ func fmtcolor(c uint8, s string, args ...interface{}) {
 }
 
 func vendorDependencies(config *Config, deps *Dependencies) {
+	pristine := true
+	var err error
+
+	if config.Vendor {
+		err = updateVendoredDependencies(config, deps)
+		if err != nil {
+			failf(err.Error())
+		}
+		pristine = false
+	}
+
 	mainScm := scmInPath(pwd)
 	if mainScm == nil {
 		failf(fmt.Sprintf("Unknown scm at %s\n", pwd))
 	}
 
-	err := cleanScms()
+	err = cleanScms()
 	if err != nil {
 		failf(err.Error())
 	}
 
-	err = mainScm.WriteVendorIgnores()
-	if err != nil {
-		failf(err.Error())
+	if pristine {
+		err = mainScm.WriteVendorIgnores()
+		if err != nil {
+			failf(err.Error())
+		}
 	}
 
 	err = config.WriteVendor()
 	if err != nil {
 		failf(err.Error())
 	}
+}
+
+func updateVendoredDependencies(config *Config, deps *Dependencies) (err error) {
+	lockConfig := NewConfigFromFile(filepath.Join(pwd, VendorDir, GopackLock))
+	lockGraph := NewGraph()
+	_, err = lockConfig.LoadDependencyModel(lockGraph)
+	if err != nil {
+		return
+	}
+
+	diffMap := make(map[string]*Dep)
+	for _, dep := range deps.DepList {
+		node := lockGraph.Search(dep.Import)
+		if node == nil || dep.Diff(node.Dependency) {
+			dep.Fetch(true)
+			diffMap[dep.Import] = dep
+		}
+	}
+
+	if len(diffMap) == 0 {
+		return
+	}
+
+	diffDeps := NewDependencies(NewGraph(), len(diffMap))
+	diffIndex := 0
+	for key, dep := range diffMap {
+		diffDeps.Save(diffIndex, key, dep)
+		diffIndex++
+	}
+
+	if len(diffDeps.DepList) > 0 {
+		announceGopack()
+		fetchTransitiveDependencies(diffDeps, true)
+	}
+
+	return
 }
 
 func cleanScms() error {

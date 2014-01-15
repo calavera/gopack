@@ -226,6 +226,8 @@ func TestWriteVendor(t *testing.T) {
   commit = "182cae2ee3926a960223d8db4998aa9d57c89788"
 `)
 
+	os.MkdirAll(path.Join(pwd, VendorDir), 0755)
+
 	err := config.WriteVendor()
 	if err != nil {
 		t.Fatal(err)

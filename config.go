@@ -24,7 +24,11 @@ type Config struct {
 }
 
 func NewConfig(dir string) *Config {
-	config := &Config{Path: fmt.Sprintf("%s/gopack.config", dir)}
+	return NewConfigFromFile(filepath.Join(dir, "gopack.config"))
+}
+
+func NewConfigFromFile(path string) *Config {
+	config := &Config{Path: path}
 
 	t, err := toml.LoadFile(config.Path)
 	if err != nil {
@@ -105,14 +109,8 @@ func (c *Config) LoadDependencyModel(importGraph *Graph) (deps *Dependencies, er
 		return
 	}
 
-	deps = new(Dependencies)
-
-	deps.Imports = make([]string, len(depsTree.Keys()))
-	deps.Keys = make([]string, len(depsTree.Keys()))
-	deps.DepList = make([]*Dep, len(depsTree.Keys()))
-	deps.ImportGraph = importGraph
-
 	modifiedChecksum := c.modifiedChecksum()
+	deps = NewDependencies(importGraph, len(depsTree.Keys()))
 
 	for i, k := range depsTree.Keys() {
 		depTree := depsTree.Get(k).(*toml.TomlTree)
@@ -131,11 +129,7 @@ func (c *Config) LoadDependencyModel(importGraph *Graph) (deps *Dependencies, er
 
 		d.Fetch(modifiedChecksum)
 
-		deps.Keys[i] = k
-		deps.Imports[i] = d.Import
-		deps.DepList[i] = d
-
-		deps.ImportGraph.Insert(d)
+		deps.Save(i, k, d)
 	}
 
 	return deps, nil
@@ -143,6 +137,11 @@ func (c *Config) LoadDependencyModel(importGraph *Graph) (deps *Dependencies, er
 
 func (c *Config) WriteVendor() error {
 	content, err := ioutil.ReadFile(c.Path)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(c.Path, filepath.Join(pwd, VendorDir, GopackLock))
 	if err != nil {
 		return err
 	}

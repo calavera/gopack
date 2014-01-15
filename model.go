@@ -42,6 +42,14 @@ type Dep struct {
 	Source string
 }
 
+func NewDependencies(importGraph *Graph, size int) *Dependencies {
+	return &Dependencies{
+		Imports:     make([]string, size),
+		Keys:        make([]string, size),
+		DepList:     make([]*Dep, size),
+		ImportGraph: importGraph}
+}
+
 func NewDependency(repo string) *Dep {
 	return &Dep{Import: repo}
 }
@@ -67,6 +75,10 @@ func (d *Dep) Get() {
 			fail(err)
 		}
 	}
+}
+
+func (d *Dep) CleanSrc() {
+	os.RemoveAll(d.Src())
 }
 
 func (d *Dep) setCheckout(t *toml.TomlTree, key string, flag uint8) {
@@ -169,9 +181,13 @@ func (d *Dependencies) Install(repo string) {
 	}
 }
 
+func (d *Dep) Diff(other *Dep) bool {
+	return d.String() != other.String()
+}
+
 func (d *Dep) String() string {
 	if d.CheckoutType() != "" {
-		return fmt.Sprintf("import = %s, %s = %s, scm = %s", d.Import, d.CheckoutType(), d.CheckoutSpec, d.Scm)
+		return fmt.Sprintf("import = %s, %s = %s, scm = %s, source = %s", d.Import, d.CheckoutType(), d.CheckoutSpec, d.Scm, d.Source)
 	} else {
 		return fmt.Sprintf("import = %s", d.Import)
 	}
@@ -262,6 +278,14 @@ func (d *Dependencies) Validate(p *ProjectStats) []*ProjectError {
 		}
 	}
 	return errors
+}
+
+func (deps *Dependencies) Save(position int, key string, d *Dep) {
+	deps.Keys[position] = key
+	deps.Imports[position] = d.Import
+	deps.DepList[position] = d
+
+	deps.ImportGraph.Insert(d)
 }
 
 func ShowValidationErrors(errors []*ProjectError) {
